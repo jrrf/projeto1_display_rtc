@@ -82,9 +82,6 @@ void setup() {
 
   t.every(1000, alarmando);
   t.every(1000, exibir);
-  //periodoDoAlarme();
-  //writeDS3231Reg(CONTROLE_REG, bcdToDec(0b00000101));
-  //writeDS3231Reg(STATUS_REG, bcdToDec(0b00000000));
 }
 
 void loop(){
@@ -98,33 +95,9 @@ void loop(){
     else identificaBotaoPrecionado();              //identifica qual botao foi precionado
   }
   receberValor();
-  teste();
 }
 
-void teste(){
-  Serial.print("(Alarme 1: seg ");
-  Serial.print(readDS3231Reg(ALARM1_SEC_REG), BIN);
-  Serial.print(", min ");
-  Serial.print(readDS3231Reg(ALARM1_MIN_REG), BIN);
-  Serial.print(", hor ");
-  Serial.print(readDS3231Reg(ALARM1_HOR_REG), BIN);
-  Serial.print(", dia ");
-  Serial.print(readDS3231Reg(ALARM1_DAY_REG), BIN);
- /*
-  Serial.print("(Alarme 2: min ");
-  Serial.print(readDS3231Reg(ALARM2_MIN_REG), BIN);
-  Serial.print(", hor ");
-  Serial.print(readDS3231Reg(ALARM2_HOR_REG), BIN);
-  Serial.print(", dia ");
-  Serial.print(readDS3231Reg(ALARM2_DAY_REG), BIN);
-//  */
-  Serial.print(")(controle ");
-  Serial.print(readDS3231Reg(CONTROLE_REG), BIN);
-  Serial.print(")(status ");
-  Serial.print(readDS3231Reg(STATUS_REG), BIN);
-  Serial.println(")");
-}
-
+//botoes e açoes
 boolean botaoPrecionado(){
   int val = analogRead(BOTAO_PIN);
   
@@ -168,14 +141,16 @@ void altFormatoDeHora(byte regAddress){
   Wire.endTransmission();
 }
 
+
 boolean lerFormatoHora(byte regAddress){
   Wire.beginTransmission(DS3231_I2C_ADDRESS);
   Wire.write(regAddress); // set DS3231 register pointer to regAddress
   Wire.endTransmission();
   Wire.requestFrom(DS3231_I2C_ADDRESS, 1); //requests 1 Byte from DS3231 register identified by regAddress
-  return Wire.read()&0x40;
+  return Wire.read()&0x40; //0 = 24h, 1 = am/pm
 }
 
+//alarme
 boolean verificaAlarmeAtivo(){
   return readDS3231Reg(CONTROLE_REG)&0x01;
 }
@@ -187,6 +162,7 @@ void alarmando(){
     luz=!luz;
   }
 }
+
 void ativarAlarme(){
   byte val = readDS3231Reg(CONTROLE_REG);
   if(verificaAlarmeAtivo())
@@ -220,6 +196,7 @@ void periodoDoAlarme(){
   writeDS3231Reg(ALARM2_DAY_REG, bcdToDec(readDS3231Reg(ALARM2_DAY_REG)&0b01111111)); 
 }
 
+//entrada de dados
 void receberValor(){
   if(Serial.available()){   //verifica se tem entrada de dados
     int index=0;
@@ -399,6 +376,7 @@ byte converte(byte Ans, byte regAddress){
   return Ans;
 }
 
+//leitura e escrita nos registradores
 byte readDS3231Reg(byte regAddress){
   Wire.beginTransmission(DS3231_I2C_ADDRESS);
   Wire.write(regAddress); // set DS3231 register pointer to regAddress
@@ -411,13 +389,14 @@ byte readDS3231Reg(byte regAddress){
   return Wire.read();
 }
 
-byte writeDS3231Reg(byte regAddress, byte value){
+void writeDS3231Reg(byte regAddress, byte value){
   Wire.beginTransmission(DS3231_I2C_ADDRESS);
   Wire.write(regAddress); // set DS3231 register pointer to regAddress
   Wire.write(decToBcd(value));
   Wire.endTransmission();
 }
 
+//gets
 String getTemperatura(){
   byte val = readDS3231Reg(TEM_REG);
   String st="";
@@ -516,6 +495,7 @@ String getAlarme(){
   return st;
 }
 
+//exibicao
 void exibir(){
   //exibirSerial();
   exibirDisplay();
@@ -575,6 +555,7 @@ void exibirDisplay(){
   }
 }
 
+//conversores
 byte de24para12(byte Ans){ //recebe a hr atual em padrao decimal
   Ans&=0b01111111;
   byte val=0b01000000; //coloca o bit pra informar que esta no formato am/pm
@@ -588,26 +569,11 @@ byte de24para12(byte Ans){ //recebe a hr atual em padrao decimal
   return Ans;
 }
 
-//ok
 byte de12para24(byte Ans){  //recebe a hr atual em padrao BCD
   Ans&=0b01111111;
   if((Ans < 0x72 && Ans >= 0x61)|| Ans==0x52) // entre 1PM e 12AM
     Ans = ((Ans&0b00011111)+0b00010010)%0x24;
   else Ans=Ans&0b00011111;
-  return Ans;
-}
-
-//ok
-byte de12para24v1(byte Ans){ //recebe em padrao BCD
-  if(Ans == 0x52){ //12am
-    Ans = 0x00;
-  } else if(Ans == 0x72){ //12pm
-    Ans = 0x12;
-  } else if(Ans&0x20){ //1pm a 11pm
-    Ans = (Ans&0x1F)+0x12;
-  } else { //1am a 11am   
-    Ans = Ans&0x1F;
-  }
   return Ans;
 }
 
